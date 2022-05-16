@@ -1,0 +1,120 @@
+___Optimization data from the execution of ROS-node "turtlebot3_obstacle":____
+
+
+turtlebot3_obstacle execution on Mon May  2 11:11:24 2022:
+    Average linear speed..: 0.122887600147
+    Collision count.......: 28
+    Collisions per minute.: 55.7916186428
+    Total run time........: 30.112049818
+    Average time per cycle: 0.199417548464
+    Scan error rate.......: 0.389537037037
+
+
+turtlebot3_obstacle execution on Mon May  2 11:13:27 2022:
+    Average linear speed..: 0.104368169572
+    Collision count.......: 6
+    Collisions per minute.: 10.7392109723
+    Total run time........: 33.52201581
+    Average time per cycle: 0.200730633593
+    Scan error rate.......: 0.387684069612
+
+
+turtlebot3_obstacle execution on Mon May  2 11:20:05 2022:
+    Average linear speed..: 0.0734750831705
+    Collision count.......: 107
+    Collisions per minute.: 52.1108362359
+    Total run time........: 123.198944092
+    Average time per cycle: 0.206018301157
+    Scan error rate.......: 0.397552479189
+
+
+turtlebot3_obstacle execution on Mon May  2 11:22:35 2022:
+    Average linear speed..: 0.0472393909832
+    Collision count.......: 93
+    Collisions per minute.: 79.6785919775
+    Total run time........: 70.0313580036
+    Average time per cycle: 0.41685332145
+    Scan error rate.......: 0.502428476381
+
+
+turtlebot3_obstacle execution on Mon May  2 10:12:45 2022:
+    Average linear speed..: 0.0
+    Collision count.......: 4
+    Collisions per minute.: 299.357131833
+    Total run time........: 0.801717996597
+    Average time per cycle: 0.160343599319
+    Scan error rate.......: 0.400694444444
+
+
+turtlebot3_obstacle execution on Mon May  2 10:14:30 2022:
+    Average linear speed..: 0.0541832865096
+    Collision count.......: 25
+    Collisions per minute.: 77.1348454525
+    Total run time........: 19.4464640617
+    Average time per cycle: 0.198433306752
+    Scan error rate.......: 0.547709049255
+
+
+turtlebot3_obstacle execution on Mon May  2 10:21:35 2022:
+    Average linear speed..: 0.129308987083
+    Collision count.......: 53
+    Collisions per minute.: 19.2990871158
+    Total run time........: 164.774633169
+    Average time per cycle: 0.219115203682
+    Scan error rate.......: 0.566388888889
+
+
+turtlebot3_obstacle execution on Mon May  2 10:38:29 2022:
+    Average linear speed..: 0.121471579812
+    Collision count.......: 6
+    Collisions per minute.: 29.951538177
+    Total run time........: 12.0194160938
+    Average time per cycle: 0.231142617189
+    Scan error rate.......: 0.572222222222
+
+
+turtlebot3_obstacle execution on Mon May  2 00:00:43 2022:
+    Average linear speed..: 0.217051271427
+    Collision count.......: 0
+    Collisions per minute.: 0.0
+    Total run time........: 19.8667271137
+    Average time per cycle: 0.202721705242
+    Scan error rate.......: 0.613001145475
+
+
+turtlebot3_obstacle execution on Mon May  2 10:39:01 2022:
+    Average linear speed..: 0.142344633004
+    Collision count.......: 305
+    Collisions per minute.: 54.5664044551
+    Total run time........: 335.371190071
+    Average time per cycle: 0.221367122159
+    Scan error rate.......: 0.252093139352
+
+
+turtlebot3_obstacle execution on Mon May  2 11:02:05 2022:
+    Average linear speed..: 0.0276804110398
+    Collision count.......: 92
+    Collisions per minute.: 255.324640786
+    Total run time........: 21.6195349693
+    Average time per cycle: 0.205900333041
+    Scan error rate.......: 0.532852564103
+
+
+turtlebot3_obstacle execution on Mon May  2 11:04:16 2022:
+    Average linear speed..: 0.108155406948
+    Collision count.......: 82
+    Collisions per minute.: 62.3967608605
+    Total run time........: 78.8502469063
+    Average time per cycle: 0.225286419732
+    Scan error rate.......: 0.301714110805
+
+
+turtlebot3_obstacle execution on Mon May  2 11:05:56 2022:
+    Average linear speed..: 0.116047012318
+    Collision count.......: 55
+    Collisions per minute.: 55.0441572453
+    Total run time........: 59.9518671036
+    Average time per cycle: 0.238852060174
+    Scan error rate.......: 0.236419753086
+
+

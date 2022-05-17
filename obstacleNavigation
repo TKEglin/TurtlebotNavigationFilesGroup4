@@ -1,0 +1,291 @@
+#!/usr/bin/env python
+#################################################################################
+# Copyright 2018 ROBOTIS CO., LTD.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#################################################################################
+
+# Authors: Gilbert #
+
+from os import lseek
+from turtle import left, right, speed
+import rospy
+import math
+import time
+from sensor_msgs.msg import LaserScan
+from geometry_msgs.msg import Twist
+
+
+LINEAR_VEL = 0.22 # meters/sec
+ANGULAR_VEL = 1.5 # radians/sec clockwise
+
+# Robot will start turning once an obstacle is detected #
+# within these ranges. The range data is in meters.     #
+SAFE_STOP_DISTANCE = 0.15
+FAR_SCAN_DISTANCE = 0.3
+
+# Directions
+RIGHT = 1
+LEFT = -1
+
+class Obstacle():
+    def __init__(self):
+        self._cmd_pub = rospy.Publisher('cmd_vel', Twist, queue_size=1)
+        ### Optimization data ###
+        # average_linear_speed will be calculated on program shut- #
+        # down using speed_accumulation and total_time_elapsed.    #
+        self.speed_accumulation = 0.0
+        self.total_time_elapsed = 0.0
+        # collision_counter is incremented every time #
+        # the robot gets too close to an object.      #
+        self.collision_counter = 0
+        # start_time will be used to organize the program #
+        # into chunks of time that will be used to calcu- #
+        # late the average_linear_speed.                  #
+        self.start_time = time.time()
+        # The linear speed of the active time block #
+        self.current_linear_velocity = 0.0
+        # The amount of cycles the program has been through #
+        self.cycle_count = 0
+        # Total amount of scans #
+        self.total_scan_count = 0
+        # Total amount of scan errors #
+        self.total_error_count = 0.0 
+        
+        # Holds the most recently retrieved scans #
+        self.current_scans = []
+        
+        # Initialising Twist() #
+        self.twist = Twist()
+        
+        # Shutdown handler #
+        rospy.on_shutdown(self.robotShutdown)
+        
+        # Launching obstacle #
+        self.obstacleNavigation()
+    
+    def robotShutdown(self):
+        "This function stops the robot and writes optimization information to a log file on shut down."
+        
+        rospy.loginfo("Shutdown initiated...")
+        rospy.loginfo("Stopping robot...")
+        self.updateRobotSpeed(0.0, 0.0)
+        rospy.loginfo("Robot stopped.")
+
+        rospy.loginfo("Writing to log file...")
+        with open("/home/ubuntu/Documents/turtlebot3_obstacle_log.txt", "a+") as file:
+            file.write(
+                    "turtlebot3_obstacle execution on " + time.ctime() + ":\n" +
+                    "    Average linear speed..: " + str(self.speed_accumulation / self.total_time_elapsed) + "\n" +
+                    "    Collision count.......: " + str(self.collision_counter) + "\n" +
+                    "    Collisions per minute.: " + str(self.collision_counter / self.total_time_elapsed*60) + "\n" +
+                    "    Total run time........: " + str(self.total_time_elapsed) + "\n" +
+                    "    Average time per cycle: " + str(self.total_time_elapsed / self.cycle_count) + "\n" +
+                    "    Scan error rate.......: " + str(self.total_error_count / self.total_scan_count) + "\n" +
+                    "\n\n")
+        rospy.loginfo("Write complete.")
+        rospy.loginfo("Shutdown complete.")
+
+    def updateRobotSpeed(self, linear_velocity, angular_velocity):
+        "This function publishes the given speeds."
+        # Speed will be updated with the highest priority, #
+        # to minimize the risk of collision.               #
+        self.twist.linear.x = linear_velocity
+        self.twist.angular.z = angular_velocity
+        self._cmd_pub.publish(self.twist)
+        # Time-speed optimization data will then be #
+        # updated using the linear_velocity.        #      
+        self.updateTime(linear_velocity)
+        
+    def updateTime(self, linear_velocity):
+        "This function updates time related optimization information."
+        # Get time elapsed #
+        current_time = time.time()
+        time_elapsed = current_time - self.start_time
+        # Store speed information #
+        self.total_time_elapsed += time_elapsed
+        self.speed_accumulation += self.current_linear_velocity * time_elapsed
+        # Start new time block and set linear_velocity #
+        self.start_time = current_time
+        self.current_linear_velocity = linear_velocity
+    
+    def retrieveScans(self):
+        "Waits for and saves new scans from the LIDAR."
+        scans = rospy.wait_for_message('scan', LaserScan)
+        self.total_scan_count += 180
+
+        scan_data = []
+
+        left_samples  = scans.ranges[-90:]
+        right_samples = scans.ranges[:90]
+        scan_data.extend(left_samples + right_samples)
+
+        # Tracks how often we replace a scan with a zero. #
+        # If this gets too large, we need to wait and get #
+        # some new scans.                                 #
+        error_count = 0
+
+        for i in range(180):
+            if scan_data[i] == float('Inf'):
+                # 3.5 ~ infinite #
+                scan_data[i] = 3.5
+            elif (math.isnan(scan_data[i]) or scan_data[i] == 0):
+                # If there is an error in the scan value, we set #
+                # the value to zero and increment error_count.   #
+                scan_data[i] = 0
+                error_count += 1
+        
+        self.total_error_count += error_count
+
+        # If there were too many errors, the robot will be stopped #
+        # and the function will get new scans. This will repeat    #
+        # recursively until an acceptable error rate is achieved.  #
+        if(error_count > 120):# -> more than ~66% errors #
+            rospy.loginfo("Critically high error rate. Retrying.")
+            self.updateRobotSpeed(0.0, 0.0)
+            # The minimum RPM of the LIDAR is 290,#
+            # so we wait 290 / 60 = 0.21 seconds  #
+            time.sleep(0.21)
+            self.retrieveScans()
+        else:
+            self.current_scans = scan_data
+        
+    def frontScan(self):
+        """
+        This function will divide the front 120 degrees 
+        of scans from the LIDAR into 3 cones. Each cone is 40 degrees wide.
+        The indices of the returned array are as follows:
+            0: Right
+            1: Center
+            2: Left
+        """
+        scan_data = self.current_scans[30:-30]
+
+        # Return array 
+        front_scan = []
+            
+        # In order to reduce the impact of scan-errors, we #
+        # take the average over every direction range.     #
+        # Each scan cone is 40 degrees wide.               #
+        for i in range(1, 4):
+            front_scan.append(self.cleanData(scan_data[(i - 1)*40 : i*40]))
+        
+        return front_scan
+
+    def cleanData(self, list):
+        """
+        This function discards invalid data and returns the mean of the remaining values.
+        To minimize the effect infinite and larger reads have on the average, only the 
+        lower 5 values will be retained.
+        """
+        new_list = []
+        # Sorting out invalid values
+        for l in list:
+            # If value is valid, add to new list
+            if l > 0:
+                new_list.append(l)
+        # In order to focus on the closest obstacles, we #
+        # will also discard the highest remaining values.#
+        # If there are less than five valid elements, we #
+        # keep the list as is.                           #
+        if(len(new_list) > 5):
+            new_list.sort()
+            new_list = new_list[:5]
+        # Finding mean
+        sum = 0
+        for l in new_list:
+            sum += l
+        if len(new_list):
+            sum /= len(new_list)
+        return sum
+
+    def getDirection(self):
+        "This function finds the direction with the fewest close obstacles."
+        left_scans = self.cleanData(self.current_scans[:90])
+        right_scans = self.cleanData(self.current_scans[90:])
+        if left_scans > right_scans:
+            return LEFT
+        else:
+            return RIGHT
+
+    def obstacleNavigation(self):
+        while not rospy.is_shutdown():          
+            # Update cycle count #
+            self.cycle_count += 1
+            
+            # In order to avoid running the same path forever #
+            # the robot will turn for a random amount of time #
+            # every 300 cycles ~ once every sixty seconds.    #
+            if (self.cycle_count % 300 == 0):
+                rospy.loginfo('Robot has completed 300 cycles.')
+                rospy.loginfo('Turning. Distance of obstacles : C = %f, L = %f, R = %f', 
+                        center_scans, left_scans, right_scans)
+                self.updateRobotSpeed(0.0, 2.84)
+                time.sleep(0.2)
+            # The time it takes to retrieve the next scans and #
+            # do the computations will introduce an element of #
+            # randomness to the resulting turning angle.       #
+
+            self.retrieveScans()
+
+            scan_means = self.frontScan()
+
+            # We save the side scans to report the distance.#
+            # The the average of all scans will be used to  #
+            # avoid collision. center_scans checks at range #
+            right_scans  = scan_means[0]
+            center_scans = scan_means[1]
+            left_scans   = scan_means[2]
+
+            # Collision if distance less than 12cm #
+            if min(scan_means) < 0.12: 
+                self.collision_counter += 1
+                
+            # If any of the scans are too close, stop completely and turn #
+            if min(scan_means) < SAFE_STOP_DISTANCE:
+                self.updateRobotSpeed(0.0, ANGULAR_VEL * self.getDirection())
+                rospy.loginfo('Collision imminent!')
+                rospy.loginfo('Stopping and turning. Distance of obstacles : C = %f, L = %f, R = %f',
+                        center_scans, left_scans, right_scans)
+                
+            # If there is an obstacle ahead in the path of the robot, #
+            # start turning. Speed depends linearly on the distance   #
+            # from the obstacle. At FAR_SCAN_DISTANCE, linear speed   #
+            # will be 100%, moving towards 0% as the robot approaches #
+            # SAFE_STOP_DISTANCE. Reverse is true for ANGULAR_VEL.    #
+            elif center_scans < FAR_SCAN_DISTANCE:
+                                      # Linear decrease in linear speed:
+                self.updateRobotSpeed(LINEAR_VEL * (6.666 * center_scans - 1),
+                                      # Linear increase in angular speed:
+                                      ANGULAR_VEL * (-6.666 * center_scans + 2) * self.getDirection())
+                rospy.loginfo('Turning. Distance of obstacles : C = %f, L = %f, R = %f', 
+                        center_scans, left_scans, right_scans)
+                
+            # If no obstacles are detected, continue forward. #
+            else:
+                self.updateRobotSpeed(LINEAR_VEL, 0.0)
+                rospy.loginfo('No obstacle.')
+
+            # Newline #
+            rospy.loginfo(" ")
+        
+                
+def main():
+    rospy.init_node('turtlebot3_obstacle')
+    try:
+        obstacle = Obstacle()
+    except rospy.ROSInterruptException:
+        pass
+
+if __name__ == '__main__':
+    main()
